@@ -226,7 +226,8 @@ const sampleData = [
             quantityKg: 500,
             agreedPricePerKg: 350, // Nigerian Naira
             qualityVerified: true,
-            deliveryConfirmed: false // Simulate pending delivery
+            deliveryConfirmed: false, // Simulate pending delivery
+            spoilageRate: 0.15
         }
     },
     {
@@ -240,7 +241,7 @@ const sampleData = [
             agreedPricePerKg: 350,
             qualityVerified: true,
             deliveryConfirmed: true, // Now confirmed
-            spoilageRate = 0.15 // default fallback
+            spoilageRate: 0.15 // default fallback
         }
     }, 
        {
@@ -320,7 +321,7 @@ const sampleData = [
         agreedPricePerKg: 400,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate = 0.06 // default fallback    
+        spoilageRate: 0.06 // default fallback    
     }
 },
     {
@@ -400,7 +401,7 @@ const sampleData = [
         agreedPricePerKg: 300,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate = 0.12 // default fallback
+        spoilageRate: 0.12 // default fallback
     }
 },
     {
@@ -467,7 +468,7 @@ const sampleData = [
         agreedPricePerKg: 280,
         qualityVerified: false, //  Not verified
         deliveryConfirmed: true, //  Confirmed
-        spoilageRate = 0.05 // default fallback
+        spoilageRate: 0.05 // default fallback
     }
 }, 
 
@@ -535,7 +536,7 @@ const sampleData = [
         agreedPricePerKg: 950,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate = 0.25 // default fallback
+        spoilageRate: 0.25 // default fallback
     }
 }
     
