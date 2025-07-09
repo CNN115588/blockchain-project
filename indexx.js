@@ -66,11 +66,24 @@ function addTransaction(transactionData) {
  * @returns {Object} An object indicating payment status and amount.
  */
 function processFairPricing(paymentTransaction) {
-    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg } = paymentTransaction.details;
+    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg, spoilageRate = 0.15 } = paymentTransaction.details;
+
+    const recentViolations = simulatedBlockchain.filter(tx =>
+        tx.productId === paymentTransaction.productId &&
+        tx.details &&
+        tx.details.violationDetected === true
+    );
+
+    let spoilage = 0;
+    if (recentViolations.length > 0) {
+        spoilage = spoilageRate * quantityKg;
+    }
 
     if (qualityVerified && deliveryConfirmed) {
-        const totalPayment = quantityKg * agreedPricePerKg;
-        console.log(`  [Fair Pricing] Payment released for Product ${paymentTransaction.productId}. Amount: ₦${totalPayment.toFixed(2)}`);
+        const adjustedQty = quantityKg - spoilage;
+        const totalPayment = adjustedQty * agreedPricePerKg;
+        console.log(`  [Fair Pricing] Violation found: ${recentViolations.length > 0 ? 'Yes' : 'No'}`);
+        console.log(`  [Fair Pricing] Payment released for Product ${paymentTransaction.productId}. Spoilage: ${spoilage.toFixed(2)} kg. Amount: ₦${totalPayment.toFixed(2)}`);
         return { status: 'Payment Released', amount: totalPayment };
     } else if (!qualityVerified) {
         console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Quality not yet verified.`);
@@ -79,7 +92,6 @@ function processFairPricing(paymentTransaction) {
         console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Delivery not yet confirmed.`);
         return { status: 'Delivery Pending', amount: 0 };
     } else {
-        console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Unknown reasons.`);
         return { status: 'Pending', amount: 0 };
     }
 }
@@ -110,9 +122,11 @@ function verifyFoodConditions(conditionTransaction) {
     }
 
     if (violations.length > 0) {
+        conditionTransaction.details.violationDetected = true;
         console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Violations: ${violations.join(', ')}`);
         return { status: status, violations: violations };
     } else {
+        conditionTransaction.details.violationDetected = false;
         console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Current Temp: ${currentTempCelsius}°C, Humidity: ${currentHumidityPercent}%`);
         return { status: status, violations: [] };
     }
@@ -225,7 +239,8 @@ const sampleData = [
             quantityKg: 500,
             agreedPricePerKg: 350,
             qualityVerified: true,
-            deliveryConfirmed: true // Now confirmed
+            deliveryConfirmed: true, // Now confirmed
+            spoilageRate = 0.15 // default fallback
         }
     }, 
        {
@@ -304,7 +319,8 @@ const sampleData = [
         quantityKg: 300,
         agreedPricePerKg: 400,
         qualityVerified: true,
-        deliveryConfirmed: true
+        deliveryConfirmed: true,
+        spoilageRate = 0.06 // default fallback    
     }
 },
     {
@@ -383,7 +399,8 @@ const sampleData = [
         quantityKg: 400,
         agreedPricePerKg: 300,
         qualityVerified: true,
-        deliveryConfirmed: true
+        deliveryConfirmed: true,
+        spoilageRate = 0.12 // default fallback
     }
 },
     {
@@ -449,7 +466,8 @@ const sampleData = [
         quantityKg: 250,
         agreedPricePerKg: 280,
         qualityVerified: false, //  Not verified
-        deliveryConfirmed: true //  Confirmed
+        deliveryConfirmed: true, //  Confirmed
+        spoilageRate = 0.05 // default fallback
     }
 }, 
 
@@ -516,7 +534,8 @@ const sampleData = [
         quantityKg: 600,
         agreedPricePerKg: 950,
         qualityVerified: true,
-        deliveryConfirmed: true
+        deliveryConfirmed: true,
+        spoilageRate = 0.25 // default fallback
     }
 }
     
