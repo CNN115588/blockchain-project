@@ -66,15 +66,19 @@ function addTransaction(transactionData) {
  * @returns {Object} An object indicating payment status and amount.
  */
 function processFairPricing(paymentTransaction) {
-    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg, spoilageRate = 0.15 } = paymentTransaction.details;
+    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg } = paymentTransaction.details;
 
-    // Check for prior condition violations
-    const recentViolations = simulatedBlockchain.filter(tx =>
+    // Default spoilage rate (you can adjust this)
+    const spoilageRate = 0.15;
+
+    // Check for condition violations for this product in the blockchain
+    const recentViolations = simulatedBlockchain.filter(tx => 
         tx.productId === paymentTransaction.productId &&
         tx.details &&
-        tx.details.violationDetected
+        tx.details.violationDetected // custom flag you'll set in condition checker
     );
 
+    // Calculate spoilage only if any previous violation is found
     let spoilage = 0;
     if (recentViolations.length > 0) {
         spoilage = spoilageRate * quantityKg;
