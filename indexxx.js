@@ -192,7 +192,7 @@ const sampleData = [
     {
         eventType: 'TRANSPORT',
         actorId: 'logistics_NGR_002',
-        productId: 'TPJ-20250522-001',
+        productId: 'TOMATO_BATCH_001',
         location: 'En route to Abuja Retailer',
         details: {
             vehicleId: 'VAN_B456',
@@ -206,7 +206,7 @@ const sampleData = [
     {
         eventType: 'RETAIL_RECEIPT',
         actorId: 'retailer_Abuja_001',
-        productId: 'TPJ-20250522-001',
+        productId: 'TOMATO_BATCH_001',
         location: 'Abuja SuperMart',
         details: {
             receiptTime: '2025-05-24T18:30:00Z',
@@ -300,7 +300,7 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_Enugu_003',
-    productId: 'DOF-20250617-002',
+    productId: 'ONION_BATCH_002',
     location: 'Enugu Market Stall 9',
     details: {
         receiptTime: '2025-06-18T09:00:00Z',
@@ -380,7 +380,7 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_PH_003',
-    productId: 'PCP-20250703-003',
+    productId: 'PLANTAIN_BATCH_003',
     location: 'Port Harcourt Retail Hub',
     details: {
         receiptTime: '2025-07-04T10:00:00Z',
@@ -501,7 +501,7 @@ const sampleData = [
 {
     eventType: 'TRANSPORT',
     actorId: 'cold_logistics_NGR_009',
-    productId: 'PFB-20250626-005',
+    productId: 'FROZEN_TILAPIA_005',
     location: 'Lagos to Jos Route (Frozen Chain)',
     details: {
         vehicleId: 'FREEZER_TRUCK_909',
@@ -515,7 +515,7 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_Jos_004',
-    productId: 'PFB-20250626-005',
+    productId: 'FROZEN_TILAPIA_005',
     location: 'Jos Cold Market Unit 4',
     details: {
         receiptTime: '2025-06-28T08:00:00Z',
