@@ -66,11 +66,27 @@ function addTransaction(transactionData) {
  * @returns {Object} An object indicating payment status and amount.
  */
 function processFairPricing(paymentTransaction) {
-    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg } = paymentTransaction.details;
+    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg, spoilageRate = 0.15 } = paymentTransaction.details;
+
+    // Check for prior condition violations
+    const recentViolations = simulatedBlockchain.filter(tx =>
+        tx.productId === paymentTransaction.productId &&
+        tx.details &&
+        tx.details.violationDetected
+    );
+
+    let spoilage = 0;
+    if (recentViolations.length > 0) {
+        spoilage = spoilageRate * quantityKg;
+    }
 
     if (qualityVerified && deliveryConfirmed) {
-        const totalPayment = quantityKg * agreedPricePerKg;
-        console.log(`  [Fair Pricing] Payment released for Product ${paymentTransaction.productId}. Amount: ₦${totalPayment.toFixed(2)}`);
+        const adjustedQty = quantityKg - spoilage;
+        const totalPayment = adjustedQty * agreedPricePerKg;
+
+        console.log(`  [Fair Pricing] Violation found: ${recentViolations.length > 0 ? 'Yes' : 'No'}`);
+        console.log(`  [Fair Pricing] Payment released for Product ${paymentTransaction.productId}. Spoilage: ${spoilage.toFixed(2)} kg. Amount: ₦${totalPayment.toFixed(2)}`);
+        
         return { status: 'Payment Released', amount: totalPayment };
     } else if (!qualityVerified) {
         console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Quality not yet verified.`);
@@ -79,11 +95,9 @@ function processFairPricing(paymentTransaction) {
         console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Delivery not yet confirmed.`);
         return { status: 'Delivery Pending', amount: 0 };
     } else {
-        console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Unknown reasons.`);
         return { status: 'Pending', amount: 0 };
     }
 }
-
 
 // --- 3. Food Delivery and Storage Conditions Verification Smart Contract Simulation ---
 
@@ -226,6 +240,7 @@ const sampleData = [
             agreedPricePerKg: 350,
             qualityVerified: true,
             deliveryConfirmed: true // Now confirmed
+            spoilageRate: 0.15 // <-- New line
         }
     }, 
        {
