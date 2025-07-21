@@ -66,19 +66,14 @@ function addTransaction(transactionData) {
  * @returns {Object} An object indicating payment status and amount.
  */
 function processFairPricing(paymentTransaction) {
-    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg } = paymentTransaction.details;
+    const { qualityVerified, deliveryConfirmed, quantityKg, agreedPricePerKg, spoilageRate = 0.15 } = paymentTransaction.details;
 
-    // Default spoilage rate (you can adjust this)
-    const spoilageRate = 0.15;
-
-    // Check for condition violations for this product in the blockchain
-    const recentViolations = simulatedBlockchain.filter(tx => 
+    const recentViolations = simulatedBlockchain.filter(tx =>
         tx.productId === paymentTransaction.productId &&
         tx.details &&
-        tx.details.violationDetected // custom flag you'll set in condition checker
+        tx.details.violationDetected === true
     );
 
-    // Calculate spoilage only if any previous violation is found
     let spoilage = 0;
     if (recentViolations.length > 0) {
         spoilage = spoilageRate * quantityKg;
@@ -87,10 +82,8 @@ function processFairPricing(paymentTransaction) {
     if (qualityVerified && deliveryConfirmed) {
         const adjustedQty = quantityKg - spoilage;
         const totalPayment = adjustedQty * agreedPricePerKg;
-
         console.log(`  [Fair Pricing] Violation found: ${recentViolations.length > 0 ? 'Yes' : 'No'}`);
         console.log(`  [Fair Pricing] Payment released for Product ${paymentTransaction.productId}. Spoilage: ${spoilage.toFixed(2)} kg. Amount: ₦${totalPayment.toFixed(2)}`);
-        
         return { status: 'Payment Released', amount: totalPayment };
     } else if (!qualityVerified) {
         console.log(`  [Fair Pricing] Payment pending for Product ${paymentTransaction.productId}: Quality not yet verified.`);
@@ -102,6 +95,7 @@ function processFairPricing(paymentTransaction) {
         return { status: 'Pending', amount: 0 };
     }
 }
+
 
 // --- 3. Food Delivery and Storage Conditions Verification Smart Contract Simulation ---
 
@@ -128,9 +122,11 @@ function verifyFoodConditions(conditionTransaction) {
     }
 
     if (violations.length > 0) {
+        conditionTransaction.details.violationDetected = true;
         console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Violations: ${violations.join(', ')}`);
         return { status: status, violations: violations };
     } else {
+        conditionTransaction.details.violationDetected = false;
         console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Current Temp: ${currentTempCelsius}°C, Humidity: ${currentHumidityPercent}%`);
         return { status: status, violations: [] };
     }
@@ -196,7 +192,7 @@ const sampleData = [
     {
         eventType: 'TRANSPORT',
         actorId: 'logistics_NGR_002',
-        productId: 'TPJ-20250522-001',
+        productId: 'TOMATO_BATCH_001',
         location: 'En route to Abuja Retailer',
         details: {
             vehicleId: 'VAN_B456',
@@ -210,7 +206,7 @@ const sampleData = [
     {
         eventType: 'RETAIL_RECEIPT',
         actorId: 'retailer_Abuja_001',
-        productId: 'TPJ-20250522-001',
+        productId: 'TOMATO_BATCH_001',
         location: 'Abuja SuperMart',
         details: {
             receiptTime: '2025-05-24T18:30:00Z',
@@ -230,7 +226,8 @@ const sampleData = [
             quantityKg: 500,
             agreedPricePerKg: 350, // Nigerian Naira
             qualityVerified: true,
-            deliveryConfirmed: false // Simulate pending delivery
+            deliveryConfirmed: false, // Simulate pending delivery
+            spoilageRate: 0.15
         }
     },
     {
@@ -243,8 +240,8 @@ const sampleData = [
             quantityKg: 500,
             agreedPricePerKg: 350,
             qualityVerified: true,
-            deliveryConfirmed: true // Now confirmed
-            spoilageRate: 0.15 // <-- New line
+            deliveryConfirmed: true, // Now confirmed
+            spoilageRate: 0.15 // default fallback
         }
     }, 
        {
@@ -303,7 +300,7 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_Enugu_003',
-    productId: 'DOF-20250617-002',
+    productId: 'ONION_BATCH_002',
     location: 'Enugu Market Stall 9',
     details: {
         receiptTime: '2025-06-18T09:00:00Z',
@@ -323,9 +320,226 @@ const sampleData = [
         quantityKg: 300,
         agreedPricePerKg: 400,
         qualityVerified: true,
-        deliveryConfirmed: true
+        deliveryConfirmed: true,
+        spoilageRate: 0.06 // default fallback    
+    }
+},
+    {
+    eventType: 'HARVEST',
+    actorId: 'farmer_003',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'Ogun Green Belt',
+    details: {
+        cropType: 'Plantain',
+        plantingDate: '2025-03-10',
+        harvestDate: '2025-07-01',
+        quantityKg: 400,
+        initialQuality: 'Excellent'
+    }
+},
+{
+    eventType: 'TRANSPORT',
+    actorId: 'logistics_NGR_004',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'En route to PH Cold Store',
+    details: {
+        vehicleId: 'REF_TRUCK_987',
+        departureTime: '2025-07-01T07:00:00Z',
+        arrivalTime: '2025-07-02T05:00:00Z',
+        currentTempCelsius: 18,
+        currentHumidityPercent: 60,
+        thresholds: { minTemp: 16, maxTemp: 22, minHumidity: 55, maxHumidity: 75 }
+    }
+},
+{
+    eventType: 'WAREHOUSE_RECEIPT',
+    actorId: 'warehouse_PH_001',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'Port Harcourt Cold Store',
+    details: {
+        receiptTime: '2025-07-02T06:00:00Z',
+        storageSection: 'Cold Unit A',
+        currentTempCelsius: 19,
+        currentHumidityPercent: 62,
+        thresholds: { minTemp: 16, maxTemp: 22, minHumidity: 55, maxHumidity: 75 }
+    }
+},
+{
+    eventType: 'PROCESS',
+    actorId: 'processor_NGR_004',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'PH Agro Plant',
+    details: {
+        processingDate: '2025-07-03',
+        processedInto: 'Plantain Chips Pack 150g',
+        batchNo: 'PCP-20250703-003',
+        qualityControl: 'Passed',
+        quantityKg: 350
+    }
+},
+{
+    eventType: 'RETAIL_RECEIPT',
+    actorId: 'retailer_PH_003',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'Port Harcourt Retail Hub',
+    details: {
+        receiptTime: '2025-07-04T10:00:00Z',
+        displayConditions: 'Shelf in AC room',
+        currentTempCelsius: 26,
+        currentHumidityPercent: 50,
+        thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 40, maxHumidity: 60 }
+    }
+},
+{
+    eventType: 'PAYMENT_REQUEST',
+    actorId: 'farmer_003',
+    productId: 'PLANTAIN_BATCH_003',
+    location: 'Ogun Green Belt',
+    details: {
+        buyerId: 'processor_NGR_004',
+        quantityKg: 400,
+        agreedPricePerKg: 300,
+        qualityVerified: true,
+        deliveryConfirmed: true,
+        spoilageRate: 0.12 // default fallback
+    }
+},
+    {
+    eventType: 'HARVEST',
+    actorId: 'farmer_004',
+    productId: 'GARLIC_BATCH_004',
+    location: 'Plateau Highland Farm',
+    details: {
+        cropType: 'Garlic',
+        plantingDate: '2025-02-01',
+        harvestDate: '2025-06-30',
+        quantityKg: 250,
+        initialQuality: 'Fair'
+    }
+},
+{
+    eventType: 'TRANSPORT',
+    actorId: 'logistics_NGR_005',
+    productId: 'GARLIC_BATCH_004',
+    location: 'En route to Ibadan Storage',
+    details: {
+        vehicleId: 'TRUCK_G321',
+        departureTime: '2025-06-30T13:00:00Z',
+        arrivalTime: '2025-07-01T10:00:00Z',
+        currentTempCelsius: 34,  //  Too hot (violation)
+        currentHumidityPercent: 85, //  Too humid (violation)
+        thresholds: { minTemp: 16, maxTemp: 28, minHumidity: 40, maxHumidity: 70 }
+    }
+},
+{
+    eventType: 'WAREHOUSE_RECEIPT',
+    actorId: 'warehouse_Ibadan_002',
+    productId: 'GARLIC_BATCH_004',
+    location: 'Ibadan Dry Store A',
+    details: {
+        receiptTime: '2025-07-01T11:00:00Z',
+        storageSection: 'Non-cooled Bay 3',
+        currentTempCelsius: 30,
+        currentHumidityPercent: 75,
+        thresholds: { minTemp: 18, maxTemp: 28, minHumidity: 40, maxHumidity: 70 }
+    }
+},
+{
+    eventType: 'RETAIL_RECEIPT',
+    actorId: 'retailer_Ibadan_002',
+    productId: 'GARLIC_BATCH_004',
+    location: 'Ibadan Market Row 5',
+    details: {
+        receiptTime: '2025-07-02T09:00:00Z',
+        displayConditions: 'Open-air Stall',
+        currentTempCelsius: 32,
+        currentHumidityPercent: 80,
+        thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 45, maxHumidity: 70 }
+    }
+},
+{
+    eventType: 'PAYMENT_REQUEST',
+    actorId: 'farmer_004',
+    productId: 'GARLIC_BATCH_004',
+    location: 'Plateau Highland Farm',
+    details: {
+        buyerId: 'retailer_Ibadan_002',
+        quantityKg: 250,
+        agreedPricePerKg: 280,
+        qualityVerified: false, //  Not verified
+        deliveryConfirmed: true, //  Confirmed
+        spoilageRate: 0.05 // default fallback
+    }
+}, 
+
+    {
+    eventType: 'HARVEST',
+    actorId: 'fish_farm_001',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Badagry Aquaculture Farm',
+    details: {
+        fishType: 'Tilapia',
+        harvestDate: '2025-06-25',
+        quantityKg: 600,
+        storageMethod: 'Ice-slurry Pre-freeze',
+        initialQuality: 'Excellent'
+    }
+},
+{
+    eventType: 'PROCESS',
+    actorId: 'cold_processor_001',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Lagos Cold Processing Unit',
+    details: {
+        processingDate: '2025-06-26',
+        processedInto: 'Packaged Fish Bag 1kg',
+        batchNo: 'PFB-20250626-005',
+        qualityControl: 'Passed',
+        quantityKg: 580
+    }
+},
+{
+    eventType: 'TRANSPORT',
+    actorId: 'cold_logistics_NGR_009',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Lagos to Jos Route (Frozen Chain)',
+    details: {
+        vehicleId: 'FREEZER_TRUCK_909',
+        departureTime: '2025-06-26T18:00:00Z',
+        arrivalTime: '2025-06-27T20:00:00Z',
+        currentTempCelsius: -16,
+        currentHumidityPercent: 40,
+        thresholds: { minTemp: -20, maxTemp: -10, minHumidity: 30, maxHumidity: 50 }
+    }
+},
+{
+    eventType: 'RETAIL_RECEIPT',
+    actorId: 'retailer_Jos_004',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Jos Cold Market Unit 4',
+    details: {
+        receiptTime: '2025-06-28T08:00:00Z',
+        displayConditions: 'Frozen Display Cabinet',
+        currentTempCelsius: -8, // Violation: Above maxTemp (-10)
+        currentHumidityPercent: 48,
+        thresholds: { minTemp: -20, maxTemp: -10, minHumidity: 30, maxHumidity: 50 }
+    }
+},
+{
+    eventType: 'PAYMENT_REQUEST',
+    actorId: 'fish_farm_001',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Badagry Aquaculture Farm',
+    details: {
+        buyerId: 'retailer_Jos_004',
+        quantityKg: 600,
+        agreedPricePerKg: 950,
+        qualityVerified: true,
+        deliveryConfirmed: true,
+        spoilageRate: 0.25 // default fallback
     }
 }
+    
 
     
 ];
