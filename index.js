@@ -43,7 +43,7 @@ let nextTransactionId = 1001; // Starting ID for transactions
  * Adds a new transaction to the simulated blockchain.
  * In a real blockchain, this would involve hashing and cryptographic linking.
  * @param {Transaction} transactionData - The data for the new transaction.
- * @returns {Transaction} The added transaction with an assigned ID.
+U * @returns {Transaction} The added transaction with an assigned ID.
  */
 function addTransaction(transactionData) {
     const newTransaction = {
