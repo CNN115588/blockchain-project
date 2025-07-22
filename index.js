@@ -106,7 +106,7 @@ function processFairPricing(paymentTransaction) {
  * @returns {Object} An object indicating condition status and any violations.
  */
 function verifyFoodConditions(conditionTransaction) {
-    const { currentTempCelsius, currentHumidityPercent, thresholds } = conditionTransaction.details;
+    const { currentTempCelsius, currentHumidityPercent, thresholds, delayHours, delayReason, weatherCondition, estimatedSpoilagePercent } = conditionTransaction.details;
     const { minTemp, maxTemp, minHumidity, maxHumidity } = thresholds;
 
     let status = 'Conditions Met';
@@ -121,15 +121,33 @@ function verifyFoodConditions(conditionTransaction) {
         violations.push(`Humidity violation: ${currentHumidityPercent}% (expected ${minHumidity}-${maxHumidity}%)`);
     }
 
+    // Mark if violation occurred
+    conditionTransaction.details.violationDetected = violations.length > 0;
+
+    // Base output
+    const baseMessage = `[Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}.`;
+
+    // Print condition status and violations
     if (violations.length > 0) {
-        conditionTransaction.details.violationDetected = true;
-        console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Violations: ${violations.join(', ')}`);
-        return { status: status, violations: violations };
+        console.log(`${baseMessage} Violations: ${violations.join(', ')}`);
     } else {
-        conditionTransaction.details.violationDetected = false;
-        console.log(`  [Conditions] For Product ${conditionTransaction.productId} at ${conditionTransaction.location}: ${status}. Current Temp: ${currentTempCelsius}°C, Humidity: ${currentHumidityPercent}%`);
-        return { status: status, violations: [] };
+        console.log(`${baseMessage} Current Temp: ${currentTempCelsius}°C, Humidity: ${currentHumidityPercent}%`);
     }
+
+    // Optional logs for extended context
+    if (delayHours !== undefined) {
+        console.log(`  [Delay Info] Transport delay: ${delayHours} hours. Reason: ${delayReason || 'Not specified'}`);
+    }
+    if (weatherCondition) {
+        console.log(`  [Weather] External condition reported: ${weatherCondition}`);
+    }
+    if (estimatedSpoilagePercent !== undefined) {
+        console.log(`  [Spoilage Estimate] Estimated spoilage: ${estimatedSpoilagePercent}%`);
+    }
+
+    return { status: status, violations: violations };
+}
+
 }
 
 
@@ -137,114 +155,113 @@ function verifyFoodConditions(conditionTransaction) {
 
 const sampleData = [
     {
-        eventType: 'HARVEST',
-        actorId: 'farmer_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Kano Farm Plot A',
-        details: {
-            cropType: 'Tomato',
-            plantingDate: '2025-01-15',
-            harvestDate: '2025-05-20',
-            quantityKg: 500,
-            initialQuality: 'Good'
-        }
-    },
-    {
-        eventType: 'TRANSPORT',
-        actorId: 'logistics_NGR_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'En route to Lagos Warehouse',
-        details: {
-            vehicleId: 'TRUCK_A123',
-            departureTime: '2025-05-20T10:00:00Z',
-            arrivalTime: '2025-05-21T08:00:00Z',
-            currentTempCelsius: 22,
-            currentHumidityPercent: 70,
-            thresholds: { minTemp: 18, maxTemp: 25, minHumidity: 60, maxHumidity: 80 }
-        }
-    },
-    {
-        eventType: 'WAREHOUSE_RECEIPT',
-        actorId: 'warehouse_Lagos_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Lagos Central Warehouse',
-        details: {
-            receiptTime: '2025-05-21T08:30:00Z',
-            storageSection: 'Refrigerated Unit 5',
-            currentTempCelsius: 20,
-            currentHumidityPercent: 65,
-            thresholds: { minTemp: 18, maxTemp: 22, minHumidity: 60, maxHumidity: 75 }
-        }
-    },
-    {
-        eventType: 'PROCESS',
-        actorId: 'processor_NGR_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Lagos Processing Plant',
-        details: {
-            processingDate: '2025-05-22',
-            processedInto: 'Tomato Paste Jar 250g',
-            batchNo: 'TPJ-20250522-001',
-            qualityControl: 'Passed',
-            quantityKg: 450 // Loss during processing
-        }
-    },
-    {
-        eventType: 'TRANSPORT',
-        actorId: 'logistics_NGR_002',
-        productId: 'TOMATO_BATCH_001',
-        location: 'En route to Abuja Retailer',
-        details: {
-            vehicleId: 'VAN_B456',
-            departureTime: '2025-05-23T09:00:00Z',
-            arrivalTime: '2025-05-24T18:00:00Z',
-            currentTempCelsius: 30, // Simulate a temperature violation
-            currentHumidityPercent: 50,
-            thresholds: { minTemp: 20, maxTemp: 28, minHumidity: 40, maxHumidity: 60 }
-        }
-    },
-    {
-        eventType: 'RETAIL_RECEIPT',
-        actorId: 'retailer_Abuja_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Abuja SuperMart',
-        details: {
-            receiptTime: '2025-05-24T18:30:00Z',
-            displayConditions: 'Shelf',
-            currentTempCelsius: 25,
-            currentHumidityPercent: 55,
-            thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 40, maxHumidity: 60 }
-        }
-    },
-    {
-        eventType: 'PAYMENT_REQUEST',
-        actorId: 'farmer_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Kano Farm Office',
-        details: {
-            buyerId: 'processor_NGR_001',
-            quantityKg: 500,
-            agreedPricePerKg: 350, // Nigerian Naira
-            qualityVerified: true,
-            deliveryConfirmed: false, // Simulate pending delivery
-            spoilageRate: 0.15
-        }
-    },
-    {
-        eventType: 'PAYMENT_REQUEST', // Re-sending with delivery confirmed
-        actorId: 'farmer_001',
-        productId: 'TOMATO_BATCH_001',
-        location: 'Kano Farm Office',
-        details: {
-            buyerId: 'processor_NGR_001',
-            quantityKg: 500,
-            agreedPricePerKg: 350,
-            qualityVerified: true,
-            deliveryConfirmed: true, // Now confirmed
-            spoilageRate: 0.15 // default fallback
-        }
-    }, 
-       {
+    eventType: 'HARVEST',
+    actorId: 'farmer_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'Kano Farm Plot A',
+    details: {
+        cropType: 'Tomato',
+        plantingDate: '2025-01-15',
+        harvestDate: '2025-05-20',
+        quantityKg: 500,
+        initialQuality: 'Good'
+    }
+},
+{
+    eventType: 'TRANSPORT',
+    actorId: 'logistics_NGR_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'En route to Lagos Warehouse',
+    details: {
+        vehicleId: 'TRUCK_A123',
+        departureTime: '2025-05-20T10:00:00Z',
+        arrivalTime: '2025-05-21T08:00:00Z',
+        delayHours: 2,
+        delayReason: 'Heavy morning traffic in Ogun',
+        weatherCondition: 'Mild rain showers',
+        currentTempCelsius: 22,
+        currentHumidityPercent: 70,
+        estimatedSpoilagePercent: 6,
+        thresholds: { minTemp: 18, maxTemp: 25, minHumidity: 60, maxHumidity: 80 }
+    }
+},
+{
+    eventType: 'WAREHOUSE_RECEIPT',
+    actorId: 'warehouse_Lagos_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'Lagos Central Warehouse',
+    details: {
+        receiptTime: '2025-05-21T08:30:00Z',
+        storageSection: 'Refrigerated Unit 5',
+        currentTempCelsius: 20,
+        currentHumidityPercent: 65,
+        weatherCondition: 'Stable with moderate cloud cover',
+        estimatedSpoilagePercent: 5,
+        thresholds: { minTemp: 18, maxTemp: 22, minHumidity: 60, maxHumidity: 75 }
+    }
+},
+{
+    eventType: 'PROCESS',
+    actorId: 'processor_NGR_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'Lagos Processing Plant',
+    details: {
+        processingDate: '2025-05-22',
+        processedInto: 'Tomato Paste Jar 250g',
+        batchNo: 'TPJ-20250522-001',
+        qualityControl: 'Passed',
+        quantityKg: 450
+    }
+},
+{
+    eventType: 'TRANSPORT',
+    actorId: 'logistics_NGR_002',
+    productId: 'TOMATO_BATCH_001',
+    location: 'En route to Abuja Retailer',
+    details: {
+        vehicleId: 'VAN_B456',
+        departureTime: '2025-05-23T09:00:00Z',
+        arrivalTime: '2025-05-24T18:00:00Z',
+        delayHours: 3,
+        delayReason: 'Flat tire and rerouting',
+        weatherCondition: 'Hot afternoon sun',
+        currentTempCelsius: 30,
+        currentHumidityPercent: 50,
+        estimatedSpoilagePercent: 10,
+        thresholds: { minTemp: 20, maxTemp: 28, minHumidity: 40, maxHumidity: 60 }
+    }
+},
+{
+    eventType: 'RETAIL_RECEIPT',
+    actorId: 'retailer_Abuja_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'Abuja SuperMart',
+    details: {
+        receiptTime: '2025-05-24T18:30:00Z',
+        displayConditions: 'Shelf',
+        currentTempCelsius: 25,
+        currentHumidityPercent: 55,
+        weatherCondition: 'Indoor AC with ambient humidity',
+        estimatedSpoilagePercent: 3,
+        thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 40, maxHumidity: 60 }
+    }
+},
+{
+    eventType: 'PAYMENT_REQUEST',
+    actorId: 'farmer_001',
+    productId: 'TOMATO_BATCH_001',
+    location: 'Kano Farm Office',
+    details: {
+        buyerId: 'processor_NGR_001',
+        quantityKg: 500,
+        agreedPricePerKg: 350,
+        qualityVerified: true,
+        deliveryConfirmed: true,
+        spoilageRate: 0.15
+    }
+}, 
+
+{
     eventType: 'HARVEST',
     actorId: 'farmer_002',
     productId: 'ONION_BATCH_002',
@@ -265,9 +282,13 @@ const sampleData = [
     details: {
         vehicleId: 'TRUCK_X789',
         departureTime: '2025-06-15T11:00:00Z',
-        arrivalTime: '2025-06-16T10:00:00Z',
-        currentTempCelsius: 24,
-        currentHumidityPercent: 72,
+        arrivalTime: '2025-06-16T14:00:00Z',
+        delayHours: 4,
+        delayReason: 'Broken axle on expressway',
+        weatherCondition: 'Dry heat with dust winds',
+        currentTempCelsius: 29,
+        currentHumidityPercent: 78,
+        estimatedSpoilagePercent: 10,
         thresholds: { minTemp: 20, maxTemp: 26, minHumidity: 60, maxHumidity: 80 }
     }
 },
@@ -277,10 +298,12 @@ const sampleData = [
     productId: 'ONION_BATCH_002',
     location: 'Enugu Agro Warehouse',
     details: {
-        receiptTime: '2025-06-16T10:30:00Z',
+        receiptTime: '2025-06-16T15:00:00Z',
         storageSection: 'Ventilated Zone 2',
-        currentTempCelsius: 22,
-        currentHumidityPercent: 65,
+        currentTempCelsius: 28,
+        currentHumidityPercent: 79,
+        weatherCondition: 'Cloudy and dry',
+        estimatedSpoilagePercent: 12,
         thresholds: { minTemp: 20, maxTemp: 25, minHumidity: 60, maxHumidity: 75 }
     }
 },
@@ -300,13 +323,15 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_Enugu_003',
-    productId: 'ONION_BATCH_002',
+    productId: 'DOF-20250617-002',
     location: 'Enugu Market Stall 9',
     details: {
         receiptTime: '2025-06-18T09:00:00Z',
         displayConditions: 'Ambient',
-        currentTempCelsius: 28,
-        currentHumidityPercent: 58,
+        currentTempCelsius: 30,
+        currentHumidityPercent: 80,
+        weatherCondition: 'Afternoon heat with haze',
+        estimatedSpoilagePercent: 15,
         thresholds: { minTemp: 18, maxTemp: 30, minHumidity: 40, maxHumidity: 60 }
     }
 },
@@ -321,10 +346,10 @@ const sampleData = [
         agreedPricePerKg: 400,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate: 0.06 // default fallback    
+        spoilageRate: 0.06
     }
-},
-    {
+}, 
+      {
     eventType: 'HARVEST',
     actorId: 'farmer_003',
     productId: 'PLANTAIN_BATCH_003',
@@ -345,9 +370,13 @@ const sampleData = [
     details: {
         vehicleId: 'REF_TRUCK_987',
         departureTime: '2025-07-01T07:00:00Z',
-        arrivalTime: '2025-07-02T05:00:00Z',
-        currentTempCelsius: 18,
-        currentHumidityPercent: 60,
+        arrivalTime: '2025-07-02T09:00:00Z',
+        delayHours: 5,
+        delayReason: 'Oil spill and roadblock on express route',
+        weatherCondition: 'High humidity with light rain',
+        currentTempCelsius: 23,
+        currentHumidityPercent: 70,
+        estimatedSpoilagePercent: 8,
         thresholds: { minTemp: 16, maxTemp: 22, minHumidity: 55, maxHumidity: 75 }
     }
 },
@@ -357,10 +386,12 @@ const sampleData = [
     productId: 'PLANTAIN_BATCH_003',
     location: 'Port Harcourt Cold Store',
     details: {
-        receiptTime: '2025-07-02T06:00:00Z',
+        receiptTime: '2025-07-02T10:30:00Z',
         storageSection: 'Cold Unit A',
         currentTempCelsius: 19,
         currentHumidityPercent: 62,
+        weatherCondition: 'Cloudy and cool',
+        estimatedSpoilagePercent: 5,
         thresholds: { minTemp: 16, maxTemp: 22, minHumidity: 55, maxHumidity: 75 }
     }
 },
@@ -380,13 +411,15 @@ const sampleData = [
 {
     eventType: 'RETAIL_RECEIPT',
     actorId: 'retailer_PH_003',
-    productId: 'PLANTAIN_BATCH_003',
+    productId: 'PCP-20250703-003',
     location: 'Port Harcourt Retail Hub',
     details: {
         receiptTime: '2025-07-04T10:00:00Z',
         displayConditions: 'Shelf in AC room',
         currentTempCelsius: 26,
         currentHumidityPercent: 50,
+        weatherCondition: 'Stable indoor environment',
+        estimatedSpoilagePercent: 3,
         thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 40, maxHumidity: 60 }
     }
 },
@@ -401,10 +434,33 @@ const sampleData = [
         agreedPricePerKg: 300,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate: 0.12 // default fallback
+        spoilageRate: 0.12
+    }
+}, 
+
+
+  
+
+    {
+    eventType: 'HARVEST',
+    actorId: 'fish_farm_001',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Badagry Aquaculture Farm',
+    details: {
+        fishType: 'Tilapia',
+        harvestDate: '2025-06-25',
+        quantityKg: 600,
+        storageMethod: 'Ice-slurry Pre-freeze',
+        initialQuality: 'Excellent'
     }
 },
-    {
+{
+    eventType: 'PROCESS',
+    actorId: 'cold_processor_001',
+    productId: 'FROZEN_TILAPIA_005',
+    location: 'Lagos Cold Processing Unit',
+    details: {
+        processi{
     eventType: 'HARVEST',
     actorId: 'farmer_004',
     productId: 'GARLIC_BATCH_004',
@@ -425,9 +481,13 @@ const sampleData = [
     details: {
         vehicleId: 'TRUCK_G321',
         departureTime: '2025-06-30T13:00:00Z',
-        arrivalTime: '2025-07-01T10:00:00Z',
-        currentTempCelsius: 34,  //  Too hot (violation)
-        currentHumidityPercent: 85, //  Too humid (violation)
+        arrivalTime: '2025-07-01T12:30:00Z',
+        delayHours: 6,
+        delayReason: 'Flooded road in Kwara',
+        weatherCondition: 'Tropical downpour and heat afterward',
+        currentTempCelsius: 34,
+        currentHumidityPercent: 85,
+        estimatedSpoilagePercent: 20,
         thresholds: { minTemp: 16, maxTemp: 28, minHumidity: 40, maxHumidity: 70 }
     }
 },
@@ -437,10 +497,12 @@ const sampleData = [
     productId: 'GARLIC_BATCH_004',
     location: 'Ibadan Dry Store A',
     details: {
-        receiptTime: '2025-07-01T11:00:00Z',
+        receiptTime: '2025-07-01T14:00:00Z',
         storageSection: 'Non-cooled Bay 3',
         currentTempCelsius: 30,
         currentHumidityPercent: 75,
+        weatherCondition: 'Sunny and humid',
+        estimatedSpoilagePercent: 18,
         thresholds: { minTemp: 18, maxTemp: 28, minHumidity: 40, maxHumidity: 70 }
     }
 },
@@ -454,6 +516,8 @@ const sampleData = [
         displayConditions: 'Open-air Stall',
         currentTempCelsius: 32,
         currentHumidityPercent: 80,
+        weatherCondition: 'Scorching afternoon sun',
+        estimatedSpoilagePercent: 22,
         thresholds: { minTemp: 20, maxTemp: 30, minHumidity: 45, maxHumidity: 70 }
     }
 },
@@ -466,13 +530,13 @@ const sampleData = [
         buyerId: 'retailer_Ibadan_002',
         quantityKg: 250,
         agreedPricePerKg: 280,
-        qualityVerified: false, //  Not verified
-        deliveryConfirmed: true, //  Confirmed
-        spoilageRate: 0.05 // default fallback
+        qualityVerified: false,
+        deliveryConfirmed: true,
+        spoilageRate: 0.05
     }
-}, 
+        }, 
 
-    {
+{
     eventType: 'HARVEST',
     actorId: 'fish_farm_001',
     productId: 'FROZEN_TILAPIA_005',
@@ -506,9 +570,13 @@ const sampleData = [
     details: {
         vehicleId: 'FREEZER_TRUCK_909',
         departureTime: '2025-06-26T18:00:00Z',
-        arrivalTime: '2025-06-27T20:00:00Z',
+        arrivalTime: '2025-06-27T23:00:00Z',
+        delayHours: 3,
+        delayReason: 'Freezer truck engine repair at Abuja bypass',
+        weatherCondition: 'Dry northern crosswinds',
         currentTempCelsius: -16,
         currentHumidityPercent: 40,
+        estimatedSpoilagePercent: 12,
         thresholds: { minTemp: -20, maxTemp: -10, minHumidity: 30, maxHumidity: 50 }
     }
 },
@@ -520,8 +588,10 @@ const sampleData = [
     details: {
         receiptTime: '2025-06-28T08:00:00Z',
         displayConditions: 'Frozen Display Cabinet',
-        currentTempCelsius: -8, // Violation: Above maxTemp (-10)
+        currentTempCelsius: -8, // Violation
         currentHumidityPercent: 48,
+        weatherCondition: 'Freezer door malfunction reported overnight',
+        estimatedSpoilagePercent: 15,
         thresholds: { minTemp: -20, maxTemp: -10, minHumidity: 30, maxHumidity: 50 }
     }
 },
@@ -536,11 +606,9 @@ const sampleData = [
         agreedPricePerKg: 950,
         qualityVerified: true,
         deliveryConfirmed: true,
-        spoilageRate: 0.25 // default fallback
+        spoilageRate: 0.25
     }
 }
-    
-
     
 ];
 
